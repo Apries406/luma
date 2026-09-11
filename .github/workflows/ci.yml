@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4716b85f2fac3e324e64fa2810f6b5c3905760a5 # 1.97.1
+        with:
+          components: rustfmt, clippy
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.16.0
+      - name: Verify pinned tools
+        shell: bash
+        run: |
+          test "$(zig version)" = "0.16.0"
+          rustc --version | grep '^rustc 1\.97\.1 '
+          cargo --version | grep '^cargo 1\.97\.1 '
+          grep -Fqx 'gpui = { git = "https://github.com/zed-industries/zed", rev = "251854020a9dbea1a388bf392c9bd04fd136a557", default-features = false }' Cargo.toml
+          grep -Fqx 'gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "251854020a9dbea1a388bf392c9bd04fd136a557", default-features = false }' Cargo.toml
+          grep -Fqx 'accesskit_macos = "=0.26.3"' crates/luma-ui/Cargo.toml
+          grep -Fq 'source = "git+https://github.com/zed-industries/zed?rev=251854020a9dbea1a388bf392c9bd04fd136a557#251854020a9dbea1a388bf392c9bd04fd136a557"' Cargo.lock
+      - name: Rust format
+        run: cargo fmt --all --check
+      - name: Rust tests
+        run: cargo test --workspace --locked
+      - name: Rust clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: Package and verify macOS app
+        if: runner.os == 'macOS'
+        run: |
+          ./scripts/package-macos.sh release
+          plutil -lint dist/Luma.app/Contents/Info.plist
+          codesign --verify --deep --strict --verbose=2 dist/Luma.app
+      - name: Smoke-start Windows window
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath target/release/luma.exe -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(15)
+            do {
+              Start-Sleep -Milliseconds 250
+              $process.Refresh()
+            } while (-not $process.HasExited -and $process.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
+
+            if ($process.HasExited) {
+              throw "Luma exited before creating a window (exit code $($process.ExitCode))."
+            }
+            if ($process.MainWindowHandle -eq 0) {
+              throw "Luma did not create a top-level window within 15 seconds."
+            }
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+      - name: Report binary size
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ls -ln target/release/luma.exe
+            certutil.exe -hashfile target/release/luma.exe SHA256
+          else
+            ls -ln target/release/luma
+            shasum -a 256 target/release/luma
+          fi

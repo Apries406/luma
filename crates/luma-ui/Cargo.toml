@@ -1,0 +1,21 @@
+[package]
+name = "luma-ui"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "luma"
+path = "src/main.rs"
+
+[dependencies]
+gpui = { workspace = true, default-features = false }
+unicode-segmentation.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+accesskit_macos = "=0.26.3"
+gpui_platform = { workspace = true, default-features = false, features = ["font-kit"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+gpui_platform = { workspace = true, default-features = false }

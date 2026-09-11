@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Luma is a calm native C and C++ workspace for beginners."
+    />
+    <title>Luma — Learn. Code. Run.</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="#home" aria-label="Luma home">
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <span>Luma</span>
+      </a>
+      <nav>
+        <a class="active" href="#home">Home</a>
+        <a href="#principles">Docs</a>
+        <a href="#workspace">Workspace</a>
+      </nav>
+    </header>
+
+    <main id="home">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="code-wall" aria-hidden="true">
+          <pre class="code-fragment code-left"><code><span>#include</span> &lt;stdio.h&gt;
+
+int main(void) {
+  printf("Hello, Luma!\n");
+  <b>return 0;</b>
+}</code></pre>
+
+          <div class="editor-ghost">
+            <div class="ghost-bar">
+              <i></i><i></i><i></i>
+              <span>main.c</span>
+            </div>
+            <pre><code>01  #include &lt;stdio.h&gt;
+02
+03  <b>int main(void) {</b>
+04    printf("Learn. Code. Run.");
+05    <em>return 0;</em>
+06  }</code></pre>
+          </div>
+
+          <pre class="terminal-ghost"><code><b>✓ Build succeeded</b>
+$ ./hello
+<span>Hello, Luma!</span></code></pre>
+
+          <ul class="file-ghost">
+            <li>main.c</li>
+            <li>build.zig</li>
+            <li><b>zero diagnostics</b></li>
+          </ul>
+        </div>
+
+        <article class="hero-card">
+          <p class="eyebrow">A native C / C++ workspace for beginners</p>
+          <h1 id="hero-title">Open. Write C.<br /><span>That’s it.</span></h1>
+          <p class="lede">
+            A calm place to learn, code, and run C — with the toolchain ready
+            when you are.
+          </p>
+          <div class="hero-actions">
+            <button class="button button-primary" type="button" data-open-demo>Start Coding <span aria-hidden="true">→</span></button>
+            <button class="button button-secondary" type="button" data-open-demo>
+              Watch Demo
+            </button>
+          </div>
+          <p class="microcopy">Built by Lec · Powered by Rust, GPUI, and Zig 0.16</p>
+        </article>
+      </section>
+
+      <section id="workspace" class="workspace-section" aria-labelledby="workspace-title">
+        <div>
+          <p class="section-label">THE DESKTOP WORKSPACE</p>
+          <h2 id="workspace-title">A short path from idea to output.</h2>
+          <p>
+            Start from a runnable <code>main.c</code>, learn what each line does,
+            and use one command to build and run.
+          </p>
+        </div>
+        <button class="button button-primary" type="button" data-open-demo>
+          Open Workspace Preview <span aria-hidden="true">→</span>
+        </button>
+      </section>
+
+      <section id="principles" class="principles" aria-label="Product principles">
+        <article>
+          <strong>01</strong>
+          <h2>Ready by default</h2>
+          <p>C17, a pinned Zig toolchain, and a runnable file are present from the start.</p>
+        </article>
+        <article>
+          <strong>02</strong>
+          <h2>Learn in context</h2>
+          <p>Short lessons live next to the editor instead of in a separate course portal.</p>
+        </article>
+        <article>
+          <strong>03</strong>
+          <h2>Native and focused</h2>
+          <p>Rust and GPUI keep the interface direct, without Electron or a webview runtime.</p>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <span>Luma · Lec</span>
+      <span>Learn. Code. Run.</span>
+    </footer>
+
+    <dialog class="demo-dialog" aria-labelledby="demo-title">
+      <div class="demo-shell">
+        <header>
+          <div>
+            <span class="demo-dot cyan"></span>
+            <span class="demo-dot orange"></span>
+            <strong id="demo-title">main.c · Workspace Preview</strong>
+          </div>
+          <button type="button" class="icon-button" data-close-demo aria-label="Close preview">×</button>
+        </header>
+        <div class="demo-body">
+          <aside aria-label="Project files">
+            <small>EXPLORER</small>
+            <p class="selected"><span>C</span> main.c</p>
+            <p><span>◆</span> build.zig</p>
+          </aside>
+          <div class="demo-editor">
+            <label for="demo-code">Editable preview</label>
+            <textarea id="demo-code" spellcheck="false">#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("Hello from Luma!\n");
+    return 0;
+}</textarea>
+            <div class="demo-toolbar">
+              <button type="button" class="run-button" data-run-demo>▶ Run</button>
+              <span>Preview only · desktop Luma builds with Zig 0.16</span>
+            </div>
+            <output class="demo-output" aria-live="polite">Ready.</output>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>

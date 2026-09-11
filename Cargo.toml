@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/luma-ui"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.97.1"
+
+[workspace.dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "251854020a9dbea1a388bf392c9bd04fd136a557", default-features = false }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "251854020a9dbea1a388bf392c9bd04fd136a557", default-features = false }
+unicode-segmentation = "=1.12.0"
+
+[profile.release]
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
