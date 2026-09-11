@@ -4,7 +4,9 @@
 )]
 
 mod app;
+mod editor;
 mod text_input;
+mod text_offset;
 mod view;
 
 use app::LumaApp;
@@ -29,6 +31,7 @@ fn main() {
 
     application().run(|context: &mut App| {
         context.on_action(quit);
+        editor::register_key_bindings(context);
         text_input::register_key_bindings(context);
         context.bind_keys([
             KeyBinding::new("tab", FocusNext, None),

@@ -5,6 +5,12 @@
 
 use std::ops::Range;
 
+use crate::text_offset::{
+    byte_range_to_utf16 as range_to_utf16, byte_to_utf16_offset as offset_to_utf16,
+    nearest_grapheme_boundary, next_grapheme_boundary as next_boundary,
+    previous_grapheme_boundary as previous_boundary, utf16_range_to_bytes as range_from_utf16,
+    utf16_range_to_bytes_in as range_from_utf16_in_range,
+};
 use gpui::{
     App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, HighlightStyle, KeyBinding,
@@ -12,8 +18,6 @@ use gpui::{
     Role, SharedString, StyledText, TextLayout, UTF16Selection, UnderlineStyle, Window, actions,
     div, fill, hsla, point, prelude::*, px, size,
 };
-use unicode_segmentation::UnicodeSegmentation;
-
 actions!(
     luma_input,
     [
@@ -72,17 +76,6 @@ pub struct TextInput {
 impl TextInput {
     pub fn single_line(placeholder: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
         Self::new(placeholder.into(), false, cx)
-    }
-
-    pub fn multiline_with_text(
-        placeholder: impl Into<SharedString>,
-        content: impl Into<SharedString>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let mut input = Self::new(placeholder.into(), true, cx);
-        input.content = content.into();
-        input.selected_range = input.content.len()..input.content.len();
-        input
     }
 
     fn new(placeholder: SharedString, multiline: bool, cx: &mut Context<Self>) -> Self {
@@ -762,67 +755,6 @@ fn reveal_scroll(
     )
 }
 
-fn offset_from_utf16(content: &str, offset: usize) -> usize {
-    let mut utf8_offset = 0;
-    let mut utf16_count = 0;
-    for character in content.chars() {
-        if utf16_count >= offset {
-            break;
-        }
-        utf16_count += character.len_utf16();
-        utf8_offset += character.len_utf8();
-    }
-    utf8_offset
-}
-
-fn offset_from_utf16_left(content: &str, offset: usize) -> usize {
-    let mut utf8_offset = 0;
-    let mut utf16_count = 0;
-    for character in content.chars() {
-        let next_utf16_count = utf16_count + character.len_utf16();
-        if offset < next_utf16_count {
-            break;
-        }
-        utf16_count = next_utf16_count;
-        utf8_offset += character.len_utf8();
-    }
-    utf8_offset
-}
-
-fn offset_to_utf16(content: &str, offset: usize) -> usize {
-    let mut utf16_offset = 0;
-    let mut utf8_count = 0;
-    for character in content.chars() {
-        if utf8_count >= offset {
-            break;
-        }
-        utf8_count += character.len_utf8();
-        utf16_offset += character.len_utf16();
-    }
-    utf16_offset
-}
-
-fn range_to_utf16(content: &str, range: &Range<usize>) -> Range<usize> {
-    offset_to_utf16(content, range.start)..offset_to_utf16(content, range.end)
-}
-
-fn range_from_utf16(content: &str, range: &Range<usize>) -> Range<usize> {
-    if range.is_empty() {
-        let offset = offset_from_utf16(content, range.start);
-        return offset..offset;
-    }
-    offset_from_utf16_left(content, range.start)..offset_from_utf16(content, range.end)
-}
-
-fn range_from_utf16_in_range(
-    content: &str,
-    base: &Range<usize>,
-    range: &Range<usize>,
-) -> Range<usize> {
-    let relative = range_from_utf16(&content[base.clone()], range);
-    base.start + relative.start..base.start + relative.end
-}
-
 fn replacement_range_for_commit(
     content: &str,
     marked: Option<&Range<usize>>,
@@ -849,62 +781,9 @@ fn replacement_range_for_composition(
     }
 }
 
-fn previous_boundary(content: &str, offset: usize) -> usize {
-    content
-        .grapheme_indices(true)
-        .rev()
-        .find_map(|(index, _)| (index < offset).then_some(index))
-        .unwrap_or(0)
-}
-
-fn next_boundary(content: &str, offset: usize) -> usize {
-    content
-        .grapheme_indices(true)
-        .find_map(|(index, _)| (index > offset).then_some(index))
-        .unwrap_or(content.len())
-}
-
-fn nearest_grapheme_boundary(content: &str, offset: usize) -> usize {
-    let offset = offset.min(content.len());
-    if offset == content.len()
-        || content
-            .grapheme_indices(true)
-            .any(|(index, _)| index == offset)
-    {
-        return offset;
-    }
-    let previous = previous_boundary(content, offset + 1);
-    let next = next_boundary(content, offset);
-    if offset - previous <= next - offset {
-        previous
-    } else {
-        next
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn converts_utf8_and_utf16_offsets_without_splitting_scalars() {
-        let content = "a😀e\u{301}中";
-        for (utf8, utf16) in [(0, 0), (1, 1), (5, 3), (8, 5), (11, 6)] {
-            assert_eq!(offset_to_utf16(content, utf8), utf16);
-            assert_eq!(offset_from_utf16(content, utf16), utf8);
-        }
-        assert_eq!(offset_from_utf16(content, 2), 5);
-        assert_eq!(offset_to_utf16(content, 2), 3);
-        assert_eq!(range_from_utf16(content, &(1..5)), 1..8);
-        assert_eq!(range_to_utf16(content, &(1..8)), 1..5);
-    }
-
-    #[test]
-    fn expands_utf16_ranges_that_split_surrogate_pairs() {
-        let content = "a😀b";
-        assert_eq!(range_from_utf16(content, &(2..3)), 1..5);
-        assert_eq!(range_from_utf16(content, &(2..2)), 5..5);
-    }
 
     #[test]
     fn resolves_ime_replacement_ranges_relative_to_marked_text() {
@@ -952,20 +831,5 @@ mod tests {
             ),
             point(px(-20.), px(-10.))
         );
-    }
-
-    #[test]
-    fn navigates_extended_grapheme_boundaries() {
-        let content = "a\r\n👩‍💻e\u{301}中";
-        let boundaries: Vec<_> = content
-            .grapheme_indices(true)
-            .map(|(index, _)| index)
-            .chain([content.len()])
-            .collect();
-        assert_eq!(boundaries, [0, 1, 3, 14, 17, 20]);
-        assert_eq!(previous_boundary(content, 14), 3);
-        assert_eq!(next_boundary(content, 3), 14);
-        assert_eq!(nearest_grapheme_boundary(content, 8), 3);
-        assert_eq!(nearest_grapheme_boundary(content, 12), 14);
     }
 }

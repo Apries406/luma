@@ -1,9 +1,13 @@
 use crate::{
     FocusNext, FocusPrevious,
+    editor::EditorController,
     text_input::TextInput,
     view::{landing, workbench},
 };
-use gpui::{App, Context, Entity, FocusHandle, Focusable, Keystroke, Render, Window, prelude::*};
+use gpui::{
+    App, Context, Entity, FocusHandle, Focusable, Keystroke, Render, Subscription, Window,
+    prelude::*,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum SidebarSection {
@@ -23,7 +27,7 @@ pub(super) enum WorkspaceTab {
 pub(super) struct LumaApp {
     pub(super) focus: FocusHandle,
     pub(super) command_input: Entity<TextInput>,
-    pub(super) source_input: Entity<TextInput>,
+    pub(super) editor: Entity<EditorController>,
     pub(super) active_sidebar: SidebarSection,
     pub(super) active_tab: WorkspaceTab,
     pub(super) editor_open: bool,
@@ -31,6 +35,7 @@ pub(super) struct LumaApp {
     pub(super) recent_keystrokes: Vec<Keystroke>,
     pub(super) activations: usize,
     pub(super) status: String,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl LumaApp {
@@ -38,18 +43,19 @@ impl LumaApp {
         let focus = context.focus_handle();
         let command_input = context
             .new(|context| TextInput::single_line("Search files or type a filename", context));
-        let source_input = context.new(|context| {
-            TextInput::multiline_with_text(
-                "Start writing C…",
+        let editor = context.new(|context| {
+            EditorController::new(
                 "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello from Luma!\\n\");\n    return 0;\n}\n",
+                window,
                 context,
             )
         });
+        let editor_subscription = context.observe(&editor, |_, _, context| context.notify());
         window.focus(&focus, context);
         Self {
             focus,
             command_input,
-            source_input,
+            editor,
             active_sidebar: SidebarSection::Explorer,
             active_tab: WorkspaceTab::Welcome,
             editor_open: false,
@@ -57,6 +63,7 @@ impl LumaApp {
             recent_keystrokes: Vec::new(),
             activations: 0,
             status: "Ready · Zig 0.16.0".to_owned(),
+            _subscriptions: vec![editor_subscription],
         }
     }
 
@@ -89,7 +96,7 @@ impl LumaApp {
         self.active_tab = WorkspaceTab::Editor;
         self.active_sidebar = SidebarSection::Explorer;
         self.status = message.to_owned();
-        window.focus(&self.source_input.read(context).focus_handle(), context);
+        window.focus(&self.editor.read(context).focus_handle(), context);
         context.notify();
     }
 

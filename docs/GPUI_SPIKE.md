@@ -2,8 +2,8 @@
 
 ## 结论
 
-- **macOS Apple Silicon 技术路线：条件 GO。** 当前固定版本可以创建原生 GPUI 窗口，并完成阶段 0 的窗口、绘制、基本单/多行输入、简体拼音 IME、选择、剪贴板、焦点、macOS 菜单、快捷键、caret-following 内部滚动、Accessibility 基线与本地 Release bundle 验证；跨输入框 IME 组合切焦及最终多行 Accessibility 语义仍需补测，不能视为生产编辑器完成。
-- **跨平台阶段 0：HOLD。** Windows CI 尚未实际运行，也没有 Windows 10/11、微软拼音、150%/200% DPI 或 Narrator 的实机证据。因此阶段 0 尚未整体完成，不能据此宣布 Windows 通过或进入阶段 1。
+- **macOS Apple Silicon 技术路线：条件 GO。** 当前固定版本可以创建原生 GPUI 窗口，并完成窗口、绘制、输入、IME、选择、剪贴板、焦点、macOS 菜单、快捷键、双轴 caret-following、Accessibility 基线与本地 Release bundle 验证。Stage 1 最小独立编辑器已替换源码区输入原型；真实中文 IME 仍需在新 controller 上人工复测。
+- **跨平台阶段 0：HOLD。** GitHub Actions `macos-15` 与 `windows-2025` 已完成真实 Release build；Windows job 还成功启动 EXE 并发现顶层窗口。但仍没有 Windows 10/11 交互式微软拼音、150%/200% DPI 或 Narrator 实机证据，因此不能宣布 Windows 产品验收通过。
 
 验证日期：2026-09-11 CST。
 
@@ -58,20 +58,20 @@
 | 焦点切换 | 通过 | 闭环断言为 `initial=single → Tab=multi → Shift+Tab=single`；Tab/Shift+Tab 使用 GPUI 焦点链 |
 | 命令入口 | macOS 通过 / Windows 待实测 | macOS AX 树存在 `Luma → Run / Services / Quit Luma`；AXPress Run 后计数从 0 变为 1。固定 GPUI Windows 后端不会显示 `set_menus` 模型；Luma 因此提供 Windows-only、可聚焦的 client-side `Run  Ctrl+Enter` 按钮，dispatch 同一个 `Activate` action，但仍需 Windows/Narrator/DPI 实测 |
 | macOS Retina | 通过 | 760×640 级逻辑窗口截图约为 1656×1482 像素（包含窗口阴影），文本与光标清晰 |
-| 基础 Accessibility | 程序化角色/焦点通过，VoiceOver 人工待测 | 文件搜索框暴露为 `AXTextField`，源码输入暴露为 `AXTextArea`，label 分别为 `File search`、`Source editor`。根因是 `GPUIWindow` 没有把 `accessibilityFocusedUIElement` 转发到 AccessKit content view：节点自身已是 `AXFocused=true`，application 却返回窗口。macOS 启动现在调用锁定依赖 `accesskit_macos 0.26.3` 的官方 focus-forwarder；同一 Release AX 回归连续 3/3 返回 `AXTextArea / Source editor` |
+| 基础 Accessibility | 历史程序化角色/焦点通过，最新重验受环境阻塞；VoiceOver 人工待测 | 文件搜索框定义为 `AXTextField`，源码编辑器定义为 `AXTextArea`，label 分别为 `File search`、`Source editor`。Stage 0 Release 曾连续 3/3 返回 `AXTextArea / Source editor`，Stage 1 初版也曾通过并完成真实 typing/undo/redo。最终重验时当前桌面环境只向 AX 暴露循环的 `AXApplication`；不可变 Stage 0 提交 `af609c8` 在同环境同样失败，故不能判定为 Stage 1 回归，也不能把本轮记为通过。VoiceOver 全程保持关闭 |
 | 最小本地 Release bundle | 通过 | `scripts/package-macos.sh release`，`plutil` 与严格 `codesign --verify` 通过，bundle ID `dev.lec.luma`；arm64 Mach-O 可执行文件启动并创建窗口。`Contents/Resources/ThirdPartyLicenses` 已包含 GPUI/Zed Apache-2.0 文本与来源清单。仅 ad-hoc 签名，`spctl` 会拒绝，不是可分发包 |
-| Release 二进制体积 | 通过 | Cargo 产物 `target/release/luma` 为 `6,164,848` bytes；bundle 内重签后的可执行文件为 `6,147,120` bytes |
-| Release `.app` 体积 | 通过 | ad-hoc 重签且加入第三方许可文本后 `du` 为 6,028 KiB，不含 Zig 工具链 |
+| Release 二进制体积 | 通过 | Stage 1 Cargo 产物 `target/release/luma` 为 `6,297,520` bytes；bundle 内重签后的可执行文件为 `6,279,024` bytes |
+| Release `.app` 体积 | 通过 | Stage 1 ad-hoc 重签且加入第三方许可文本后 `du` 为 6,156 KiB，不含 Zig 工具链 |
 | Zig 工具链体积 | 记录 | 单独统计 `.tools/zig-0.16.0/zig` 为 181,004 KiB，不计入 Luma `.app` |
-| Windows Release 构建/启动 | **未验证** | CI 文件已创建，但仓库没有远端运行记录；YAML 不是通过证据。macOS 主机借助临时 `llvm-rc`→Zig 0.16.0 `zig rc` 参数转换 shim 后，`cargo check --workspace --locked --target x86_64-pc-windows-msvc` 已检查到 `gpui_windows`、`gpui_platform` 和 `luma-ui` 并成功；该 hosted type-check 不执行 Windows Release shader 编译、链接或启动，不能算 Windows 通过 |
+| Windows Release 构建/启动 | CI 通过 / 交互实机待测 | GitHub Actions run [`34584248930`](https://github.com/Apries406/luma/actions/runs/34584248930) 的 `windows-2025` job `103214655404` 已通过 fmt、test、Clippy、Release build、EXE 启动与顶层窗口 smoke。该证据确认 CI runner 可构建和启动，但不替代 Windows 10/11 人工输入、DPI、Narrator 与 GPU/驱动验收 |
 | Windows 150% / 200% DPI | **未验证** | 必须 Windows 实机或 VM |
 | Windows 微软拼音 / Narrator | **未验证** | 必须 Windows 实机或 VM |
 
 最终本地产物 SHA-256（用于本次工作区核对，不替代 Git commit 或 CI artifact）：
 
 ```text
-d7e64f9e95353c782a6094bd14573e37d946aa7a96c509a0ea0868919f1db033  target/release/luma
-2568ecef355e88c2bfc38f0b4f0a94a1a1a499c90f5268dee90f11a312a7418b  dist/Luma.app/Contents/MacOS/luma
+4e311c769dfe573817190b42356f5a2ff633b0213ec808d6bfcc094ab9a0e175  target/release/luma
+5db0cf0552c89d4de25037befe4336fa377ff65888d59274ca0e27910de0c330  dist/Luma.app/Contents/MacOS/luma
 daf46ca31e92bdac303f603c582a2e451d87143058ee5210b3752f0484f1c3b3  dist/Luma.app/Contents/Info.plist
 5683044430784a7f90c7fe391c217be5f684051ed505c428d7cb59ab78680d57  LICENSES/Apache-2.0-Zed.txt
 ```
@@ -91,8 +91,8 @@ cargo check --workspace --locked --target x86_64-pc-windows-msvc
 
 结果：
 
-- 单元测试：5 passed，0 failed（含代理对内部 UTF-16 range 双向裁剪、marked-text 相对 replacement range 与双轴最小 caret reveal 回归）
-- macOS AX：持久化 native harness 连续 3/3 通过，application focused element 为 `AXTextArea / Source editor`；测试前后 VoiceOver 保持关闭
+- 单元测试：22 passed，0 failed（含原子 multi-edit、stale/重叠/非法 UTF-8 batch、CRLF、Unicode selection、undo/redo selection、typing merge/barrier、UTF-16/IME 与双轴 caret reveal）
+- macOS AX：历史 Release harness 曾连续 3/3 通过，Stage 1 初版也曾返回 `AXTextArea / Source editor` 并完成真实编辑链；最终重验的 AX provider 环境异常同样影响不可变 Stage 0 基线，故本轮不新增 AX pass。测试前后 VoiceOver 保持关闭
 - Clippy：0 项 Luma warning/error
 - Release：本地 bundle 构建成功；ad-hoc `codesign --verify --deep --strict` 成功；未做 Developer ID 签名或公证，`spctl` 拒绝
 - 已知依赖提示：`block v0.1.6` 被 Cargo 标为 future-incompatibility；这是锁定 GPUI 依赖树中的上游依赖，不是 Luma Clippy 失败
@@ -112,31 +112,32 @@ cargo check --workspace --locked --target x86_64-pc-windows-msvc
 11. workbench 曾绘制固定 `1..=18` 行号，文本滚动后会显示错误行号。阶段 0 删除该虚假 gutter；等正式 `LayoutViewport` 能提供真实可见行时再恢复。
 12. 多行输入原型原先允许软换行，导致无法验证代码行的水平 caret reveal；改为 GPUI `whitespace_nowrap`。Pinned GPUI 只将 `wrap_width` 设为 `None`，仍保留 `\n` 硬换行；600 字符单行及滚动后 hit-test 实测通过。
 13. `Role::MultilineTextInput` 已正确映射为 `AXTextArea`，但节点 `AXFocused=true` 时 application 曾仍返回窗口。增加 `.focusable()` 不改变结果并已回退；源码追踪确认 `GPUIWindow` 缺少 AccessKit 官方 window→content-view focus forwarder。Luma 仅在 macOS 启动时调用 `accesskit_macos::add_focus_forwarder_to_window_class("GPUIWindow")`，未修改 vendored GPUI；持久化 AX harness 在 Release 上连续 3/3 通过。
-14. `input.rs`/`editor_input` 容易把 Stage 0 原型误解为生产编辑器，已改名为 `text_input.rs`/`source_input`。Lec 已确认继续独立实现最小编辑器，不接入 GPL-3.0-or-later 的 Zed editor crate。
+14. `input.rs`/`editor_input` 容易把 Stage 0 原型误解为生产编辑器，先改名为 `text_input.rs`/`source_input`；Stage 1 进一步让 `TextInput` 只服务文件搜索，并由独立 `EditorController` 接管源码区。未接入 GPL-3.0-or-later 的 Zed editor crate。
+15. 固定假行号已由真实 `Document::line_count` gutter 替代；当前行、dirty marker 与 `Ln/Col` 都直接读取 editor 状态。初版 Release 截图暴露 gutter 与源码 8 px 上边距不一致；现统一使用 `EDITOR_PADDING`，并把双轴 scroll 上限计入 padding。
+16. Backspace/Delete 内部会临时扩展 selection；若此时才创建 history snapshot，undo 会恢复错误选区。controller 现在在命令开始前保存 selection，并用 AX 聚焦后的真实按键验证 typing→undo→redo→Backspace→undo 全链路。
+17. 独立审查发现 typing merge 会跨切焦、viewport resize 不会重新 reveal caret、非文本 clipboard 会遗留一次 barrier。现分别在 focus-out 插入 history barrier、把 viewport size 纳入 reveal 判定、只在 clipboard 实际含文本时设置 paste barrier；resize 行为有同 revision 回归测试。
 
 ## 已知风险
 
 1. GPUI 仍是 pre-1.0，版本间可能有破坏性变化；必须保持完整 Git SHA 与 `Cargo.lock`。
-2. 当前 `TextInput` 是阶段 0 的紧凑原型，不是代码编辑器：它验证了 IME、选择、剪贴板、基本多行输入和 caret-following，但没有语法树、海量文本模型、撤销栈、真实行号、代码级垂直导航或虚拟化。固定假行号已删除；阶段 1 应按 [`EDITOR_STRATEGY.md`](EDITOR_STRATEGY.md) 的 `LayoutViewport` 边界实现真实 gutter，不应继续扩张输入原型。
-3. caret-following 使用输入组件自己的像素 offset，并统一应用于绘制、mouse hit-test 和 IME range geometry；它不是可自由拖动的完整滚动模型。超长 IME composition、窗口 resize 与候选框位置仍需 Windows 实机验证。
-4. 输入实体在光标/选区变更时清理本地 marked range，但 GPUI 没有公开的跨平台 API 主动取消 native composition；跨输入框切焦时的组合态必须在 Windows/macOS 后续专门验证。基于同一原因，辅助技术 `SetValue` 尚未实现，避免 native IME 后续更新覆盖错误文本。
+2. 源码区已使用独立最小编辑器，但 v1 仍采用全文 `String` 与全文 history snapshot；没有 rope、虚拟化、语法树、高亮、多光标或海量文本优化。只有真实大文件需求与性能数据出现后才升级文本结构。
+3. `LayoutViewport` 使用 editor 自己的像素 offset，并统一应用于绘制、mouse hit-test 和 IME range geometry；它不是可自由拖动的完整滚动模型。超长 IME composition、窗口 resize 与候选框位置仍需 Windows 实机验证。
+4. editor 在 selection command、unmark 与 undo 前安全结束本地 composition，但 GPUI 没有公开的跨平台 API 主动取消 native composition；跨输入框切焦时的组合态必须在 Windows/macOS 后续专门验证。基于同一原因，辅助技术 `SetValue` 尚未实现，避免 native IME 后续更新覆盖错误文本。
 5. 固定 GPUI 的 Windows `set_menus` 只保存菜单模型，不创建原生 HMENU；Luma 已增加 Windows-only client-side Run command 作为最小 command-entry alternative，但它不是 HMENU，必须由产品确认并在 Windows/Narrator/DPI 实机验收。
-6. 当前主机只能借助未提交的临时 Zig RC shim 完成 Windows target 的 hosted `cargo check`；不能完成 Windows Release shader 编译、链接、启动、DPI、微软拼音、Narrator 和打包验证。Windows Release shader 构建另需 Windows SDK 的 legacy `fxc.exe`。
+6. 当前 macOS 主机只能借助未提交的临时 Zig RC shim 完成 Windows target hosted `cargo check`；真实 Windows Release 编译、链接与顶层窗口 smoke 由 GitHub `windows-2025` runner 通过。DPI、微软拼音、Narrator、GPU/驱动和发行打包仍必须在可交互 Windows 10/11 环境验证。
 7. 当前尚未实现 Zig Core、`luma_core` 静态库、稳定 C ABI、项目系统或 F5 构建/运行；这些属于后续阶段，不能由本次 spike 推断为已完成。
 8. 阶段 0 的 `.app` 仅是 ad-hoc 签名的最小本地 bundle，尚未加入应用图标、Developer ID 签名、公证或发行安装器。
-9. 本地交互截图与临时文件不是发布审计链；Stage 0 仍须记录不可变 Git commit、远端 CI run URL 与 Windows artifact/截图。
-10. CI 第三方 Actions 已固定到完整 commit SHA；`actions/checkout` 与 `mlugg/setup-zig` 的 SHA 已分别核对远端 `v4`/`v2` ref，Rust SHA 已核对远端 `1.97.1` branch，且该固定 commit 的 `action.yml` 内嵌精确 toolchain。Workflow 使用 `contents: read` 最小权限并禁用 checkout token 持久化，还包括手动触发、45 分钟 timeout、macOS bundle lint/signature、Windows Release 顶层窗口 smoke 与二进制 SHA-256 日志；首次远端运行尚待 push。本机没有 `actionlint`/`pwsh`，这里只完成 YAML 解析、独立静态复核与 hosted Rust target check。
-11. macOS AX 角色和 application focus 已用持久化 native harness 重验通过；VoiceOver 的实际语音、导航顺序和编辑反馈只能由用户人工复测，不能由 AX API 断言替代。自动化不得自行开启或切换系统 VoiceOver；须取得用户明确确认。
-12. 项目自身许可证仍待 Lec 团队确认；发行前还要根据 `Cargo.lock` 生成完整第三方许可证清单。
+9. 初始不可变提交为 `af609c805ac322b191ad99674acc71cb78ecb22d`，对应 GitHub Actions run [`34584248930`](https://github.com/Apries406/luma/actions/runs/34584248930)；macOS job `103214655180` 与 Windows job `103214655404` 全部成功。CI artifact 不能替代 Windows 人工截图与交互证据。
+10. CI 第三方 Actions 已固定到完整 commit SHA；`actions/checkout` 与 `mlugg/setup-zig` 的 SHA 已分别核对远端 `v4`/`v2` ref，Rust SHA 已核对远端 `1.97.1` branch，且该固定 commit 的 `action.yml` 内嵌精确 toolchain。Workflow 使用 `contents: read` 最小权限并禁用 checkout token 持久化，还包括手动触发、45 分钟 timeout、macOS bundle lint/signature、Windows Release 顶层窗口 smoke 与二进制 SHA-256 日志；首次远端 matrix 已通过。本机没有 `actionlint`/`pwsh`，YAML 另经本地解析与静态复核。
+11. macOS AX 角色和 application focus 曾用持久化 native harness 通过；当前桌面环境的 AX provider 异常也可在不可变 Stage 0 基线复现，须在环境恢复后重跑当前 Stage 1。VoiceOver 的实际语音、导航顺序和编辑反馈只能由用户人工复测，不能由 AX API 断言替代；自动化不得自行开启或切换系统 VoiceOver。
+12. 项目自身许可证仍待 Lec 团队确认。`cargo metadata --locked` 已审计 632 个依赖且 `license`/`license_file` 缺失为 0；发行前仍要生成并人工复核完整第三方 notice 文件，而不只是元数据统计。
 
-## 阶段 1 入口条件
+## 阶段 0 剩余门禁
 
-跨平台阶段 0 保持 **HOLD**，满足以下条件后才改为 GO：
-
-1. 将仓库推送到可运行 CI 的远端，并取得 `windows-2025` 的真实成功记录：fmt、test、Clippy、Release build 全部通过。
-2. 由产品确认现有 Windows client-side Run command 可作为 command-entry alternative；若不接受，再实现完整 client-side menu。caret-following 内部滚动代码已完成，但仍需 Windows 实机验证。
-3. 完成 macOS 人工 VoiceOver 导航、label 与源码编辑反馈复测；程序化 `AXFocusedUIElement` 回归已通过。
-4. 在 Windows 10 或 11 x86_64 上实际启动 Release 窗口，至少完成 [`WINDOWS_TEST_CHECKLIST.md`](WINDOWS_TEST_CHECKLIST.md) 中的窗口、文本、单/多行输入、跨输入框 IME 组合切焦、微软拼音提交、剪贴板、命令入口、150%/200% DPI 与 Narrator P0 项。
-5. 记录 Windows EXE 与包体积、系统版本、GPU/驱动和截图；未执行项继续标为“未验证”。
+跨平台阶段 0 保持 **HOLD**。远端 `windows-2025` fmt、test、Clippy、Release build 与启动 smoke 已通过；改为整体 GO 前仍需：
+1. 由产品确认现有 Windows client-side Run command 可作为 command-entry alternative；若不接受，再实现完整 client-side menu。caret-following 内部滚动代码已完成，但仍需 Windows 实机验证。
+2. 在当前 AX provider 环境恢复后重跑 Stage 1 程序化 `AXFocusedUIElement`，并由用户完成人工 VoiceOver 导航、label 与源码编辑反馈复测。
+3. 在 Windows 10 或 11 x86_64 上实际启动 Release 窗口，至少完成 [`WINDOWS_TEST_CHECKLIST.md`](WINDOWS_TEST_CHECKLIST.md) 中的窗口、文本、单/多行输入、跨输入框 IME 组合切焦、微软拼音提交、剪贴板、命令入口、150%/200% DPI 与 Narrator P0 项。
+4. 记录 Windows EXE 与包体积、系统版本、GPU/驱动和截图；未执行项继续标为“未验证”。
 
 在此之前，只能说 **macOS GPUI 技术路线已验证**，不能说 **Luma 跨平台阶段 0 已完成**。

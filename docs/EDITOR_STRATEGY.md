@@ -11,6 +11,16 @@ Luma 借鉴 Zed 编辑器的分层、事务边界和行为不变量，但独立�
 - 不复制、逐行翻译或改编 GPL editor 源码、独特注释、命名和内部数据结构。
 - 独立实现应保留设计说明与测试作为来源和行为证据。
 
+## Stage 1 当前实现
+
+- `editor/document.rs` 实现 UTF-8 `Document`、LF 规范化、行起点、单调 revision 与原子 `EditBatch`。
+- `editor/history.rs` 实现全文 snapshot 版 v1 undo/redo；同时恢复 selection，连续 typing 合并，paste/IME 等形成 barrier，新编辑清空 redo。
+- `editor/session.rs` 实现单 selection、anchor/active 方向、preferred horizontal column 与带 transaction token 的 composition。
+- `editor/controller.rs` 独立承担 GPUI 键盘、鼠标、clipboard、IME 与 Accessibility；源码编辑不再复用搜索框 `TextInput`。
+- `editor/layout.rs` 保存 document revision、双轴 scroll offset 与延迟 caret reveal 请求；最终 shifted `TextLayout` 同时服务 paint、hit test、caret 和 IME geometry。
+- workbench gutter 由 `Document::line_count` 实时生成，并显示当前行、dirty marker 与 `Ln/Col`；不再绘制固定假行号。
+- 当前实现仍以全文 `String`/snapshot 为最小正确 v1；大文件 rope、虚拟化、语法高亮、文件 I/O、LSP 与多光标均未进入本切片。
+
 ## 最小分层
 
 1. **Document**：UTF-8 文本、LF 规范化、行起点索引、单调 revision；原子应用同一 revision 的非重叠 `EditBatch`。
@@ -45,7 +55,7 @@ clangd
 - `EditBatch` 中所有 range 都引用同一编辑前 revision；先验证 UTF-8 边界、排序和不重叠，再原子应用。
 - 最外层命令事务提交；嵌套事务合并；空事务丢弃；新编辑清空 redo。
 - Undo/redo 同时恢复文本和 selection。
-- 普通连续输入可以短时间合并；粘贴、格式化、保存、补全和 IME commit 必须形成 barrier。
+- 同一焦点与 selection 上的连续输入可以合并；切焦、粘贴、格式化、保存、补全和 IME commit 必须形成 barrier。
 
 ### Selection
 
@@ -77,6 +87,6 @@ clangd
 
 ## 明确不做
 
-阶段 1 前不实现 CRDT、Lamport clock、tombstone、协作 undo、MultiBuffer/excerpt、完整 DisplayMap 管线、历史 LSP snapshot rebase、多服务端诊断合并、内联诊断块或 scrollbar marker。
+当前 Stage 1 切片不实现 CRDT、Lamport clock、tombstone、协作 undo、MultiBuffer/excerpt、完整 DisplayMap 管线、历史 LSP snapshot rebase、多服务端诊断合并、内联诊断块或 scrollbar marker。
 
-当前 `TextInput` 仍只是 Stage 0 的 GPUI 输入验证原型。它不应继续膨胀为生产编辑器；下一阶段从上述 `Document` 和事务边界开始，以行为测试驱动独立实现。
+`TextInput` 现在只服务文件搜索；源码区由独立 `EditorController` 管理。下一切片只在现有行为测试和真实平台证据要求下增加保存/文件模型或语法能力，不为未来需求预建抽象。

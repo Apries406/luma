@@ -461,6 +461,10 @@ fn welcome(context: &mut Context<LumaApp>) -> impl IntoElement {
 }
 
 fn editor(app: &LumaApp, context: &mut Context<LumaApp>) -> impl IntoElement {
+    let editor = app.editor.read(context);
+    let dirty_marker = if editor.is_dirty() { " ●" } else { "" };
+    let (line, column) = editor.cursor_position();
+
     div()
         .size_full()
         .flex()
@@ -478,17 +482,16 @@ fn editor(app: &LumaApp, context: &mut Context<LumaApp>) -> impl IntoElement {
                 .border_color(rgb(BORDER))
                 .text_size(px(11.))
                 .text_color(rgb(MUTED))
-                .child("hello-c / main.c")
+                .child(format!("hello-c / main.c{dirty_marker}"))
                 .child("C17"),
         )
         .child(
             div()
-                .h(px(346.))
-                .flex_none()
+                .flex_1()
+                .min_h(px(0.))
                 .overflow_hidden()
-                .child(app.source_input.clone()),
+                .child(app.editor.clone()),
         )
-        .child(div().flex_1())
         .child(
             div()
                 .h(px(32.))
@@ -514,7 +517,13 @@ fn editor(app: &LumaApp, context: &mut Context<LumaApp>) -> impl IntoElement {
                         .on_click(context.listener(|app, _, _, context| app.run(context)))
                         .child("▶ Run"),
                 )
-                .child(div().text_color(rgb(MUTED)).child("Cmd/Ctrl+Enter")),
+                .child(div().text_color(rgb(MUTED)).child("Cmd/Ctrl+Enter"))
+                .child(div().flex_1())
+                .child(
+                    div()
+                        .text_color(rgb(MUTED))
+                        .child(format!("Ln {line}, Col {column}")),
+                ),
         )
 }
 

@@ -24,4 +24,4 @@ Zig 0.16.0 是与 Luma 核心分开发行和统计体积的外部工具链。打
 
 ## Rust 依赖
 
-发行流程必须根据 `Cargo.lock` 生成完整许可证报告。阶段 0 的紧凑输入原型参考并改编了 Apache-2.0 的官方 GPUI `examples/input.rs`；没有引入 Zed 编辑器内部 crate 作为 Luma 业务层 API。正式发行时须随包携带适用的 Apache-2.0 许可文本与依赖 notices。
+发行流程必须根据 `Cargo.lock` 生成完整许可证报告。搜索输入与 Stage 1 独立编辑器的平台输入/排版适配参考并改编了 Apache-2.0 的官方 GPUI `examples/input.rs`；没有引入 Zed 编辑器内部 crate 作为 Luma 业务层 API。正式发行时须随包携带适用的 Apache-2.0 许可文本与依赖 notices。
