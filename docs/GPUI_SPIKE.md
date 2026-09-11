@@ -63,7 +63,7 @@
 | Release 二进制体积 | 通过 | Stage 1 Cargo 产物 `target/release/luma` 为 `6,297,520` bytes；bundle 内重签后的可执行文件为 `6,279,024` bytes |
 | Release `.app` 体积 | 通过 | Stage 1 ad-hoc 重签且加入第三方许可文本后 `du` 为 6,156 KiB，不含 Zig 工具链 |
 | Zig 工具链体积 | 记录 | 单独统计 `.tools/zig-0.16.0/zig` 为 181,004 KiB，不计入 Luma `.app` |
-| Windows Release 构建/启动 | CI 通过 / 交互实机待测 | GitHub Actions run [`34584248930`](https://github.com/Apries406/luma/actions/runs/34584248930) 的 `windows-2025` job `103214655404` 已通过 fmt、test、Clippy、Release build、EXE 启动与顶层窗口 smoke。该证据确认 CI runner 可构建和启动，但不替代 Windows 10/11 人工输入、DPI、Narrator 与 GPU/驱动验收 |
+| Windows Release 构建/启动 | CI 通过 / 交互实机待测 | Stage 1 commit `7c4eb892c11b84930edf0c02c855453f7541ecfa` 的 GitHub Actions run [`34596100426`](https://github.com/Apries406/luma/actions/runs/34596100426)、Windows job `103252092608` 已通过 fmt、test、Clippy、Release build、EXE 启动与顶层窗口 smoke。该证据确认 CI runner 可构建和启动，但不替代 Windows 10/11 人工输入、DPI、Narrator 与 GPU/驱动验收 |
 | Windows 150% / 200% DPI | **未验证** | 必须 Windows 实机或 VM |
 | Windows 微软拼音 / Narrator | **未验证** | 必须 Windows 实机或 VM |
 
@@ -127,7 +127,7 @@ cargo check --workspace --locked --target x86_64-pc-windows-msvc
 6. 当前 macOS 主机只能借助未提交的临时 Zig RC shim 完成 Windows target hosted `cargo check`；真实 Windows Release 编译、链接与顶层窗口 smoke 由 GitHub `windows-2025` runner 通过。DPI、微软拼音、Narrator、GPU/驱动和发行打包仍必须在可交互 Windows 10/11 环境验证。
 7. 当前尚未实现 Zig Core、`luma_core` 静态库、稳定 C ABI、项目系统或 F5 构建/运行；这些属于后续阶段，不能由本次 spike 推断为已完成。
 8. 阶段 0 的 `.app` 仅是 ad-hoc 签名的最小本地 bundle，尚未加入应用图标、Developer ID 签名、公证或发行安装器。
-9. 初始不可变提交为 `af609c805ac322b191ad99674acc71cb78ecb22d`，对应 GitHub Actions run [`34584248930`](https://github.com/Apries406/luma/actions/runs/34584248930)；macOS job `103214655180` 与 Windows job `103214655404` 全部成功。CI artifact 不能替代 Windows 人工截图与交互证据。
+9. 初始不可变提交 `af609c805ac322b191ad99674acc71cb78ecb22d` 的 GitHub Actions run [`34584248930`](https://github.com/Apries406/luma/actions/runs/34584248930) 全绿。Stage 1 源码提交 `7c4eb892c11b84930edf0c02c855453f7541ecfa` 的 run [`34596100426`](https://github.com/Apries406/luma/actions/runs/34596100426) 也全绿：macOS job `103252092474` 完成 Release/package，Windows job `103252092608` 完成 Release/顶层窗口 smoke。CI artifact 不能替代 Windows 人工截图与交互证据。
 10. CI 第三方 Actions 已固定到完整 commit SHA；`actions/checkout` 与 `mlugg/setup-zig` 的 SHA 已分别核对远端 `v4`/`v2` ref，Rust SHA 已核对远端 `1.97.1` branch，且该固定 commit 的 `action.yml` 内嵌精确 toolchain。Workflow 使用 `contents: read` 最小权限并禁用 checkout token 持久化，还包括手动触发、45 分钟 timeout、macOS bundle lint/signature、Windows Release 顶层窗口 smoke 与二进制 SHA-256 日志；首次远端 matrix 已通过。本机没有 `actionlint`/`pwsh`，YAML 另经本地解析与静态复核。
 11. macOS AX 角色和 application focus 曾用持久化 native harness 通过；当前桌面环境的 AX provider 异常也可在不可变 Stage 0 基线复现，须在环境恢复后重跑当前 Stage 1。VoiceOver 的实际语音、导航顺序和编辑反馈只能由用户人工复测，不能由 AX API 断言替代；自动化不得自行开启或切换系统 VoiceOver。
 12. 项目自身许可证仍待 Lec 团队确认。`cargo metadata --locked` 已审计 632 个依赖且 `license`/`license_file` 缺失为 0；发行前仍要生成并人工复核完整第三方 notice 文件，而不只是元数据统计。
